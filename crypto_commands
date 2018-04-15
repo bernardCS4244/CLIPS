@@ -1,0 +1,7 @@
+(clear)
+(load "crypto.clp")
+(reset)
+(run)
+O H
+N O
+L O L
