@@ -4,9 +4,6 @@
 		(digits 0 1 2 3 4 5 6 7 8 9))
 
 ;**************TEMPLATES*********************
-(defttemplate digits-pool
-	(multislot digits (type INTEGER))
-)
 (deftemplate possible
 	(multislot letters (type SYMBOL))
 	(multislot digits (type INTEGER))
@@ -48,8 +45,12 @@
 (defrule enumerate
 	(process $? ?a $?)
 	(digits $? ?d $?)
+	(assign(letter ?l)(digit ?n))
 	=>
-	(assert (enum ?a ?d))
+	(if (eq ?a ?l)
+		then (assert (enum ?l ?n))
+		else (assert (enum ?a ?d))
+	)
 )
 
 (defrule solving

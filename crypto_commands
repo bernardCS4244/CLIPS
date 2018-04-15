@@ -1,4 +1,7 @@
 (clear)
+(watch activations)
+(watch facts)
+(watch rules)
 (load "crypto.clp")
 (reset)
 (run)
