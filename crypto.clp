@@ -18,7 +18,8 @@
 
 (deftemplate possible
 	(multislot letters (type SYMBOL))
-	(multislot digits (type INTEGER)))
+	(multislot digits (type INTEGER))
+	(slot carryover))
 
 (deftemplate assign
 	(slot letter (type SYMBOL))
@@ -201,14 +202,9 @@
 		(or(eq ?column -1) (eq ?column 1))
 		then(
 			if (or (and (eq ?column -1) (>= (+ ?d1 ?d2) 10))(and (eq ?column 1) (< (+ ?d1 ?d2) 10)))
-			then (assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)))
-
-			else (
-				if (eq ?column -1)
-				then (assert (require carryover))
-			)
+			then (assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover false)))
 		)
-		else(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)))
+		else(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover false)))
 	)
 
 	(assert (done (column ?column)))
