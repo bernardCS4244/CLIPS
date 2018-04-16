@@ -4,6 +4,18 @@
 		(digits 0 1 2 3 4 5 6 7 8 9))
 
 ;**************TEMPLATES*********************
+(deftemplate do
+	(slot column))
+
+(deftemplate done
+	(slot column))
+
+(deftemplate is-result-longer
+	(slot boolean)
+)
+(deftemplate max-length
+	(slot length (type INTEGER))
+)
 (deftemplate possible
 	(multislot letters (type SYMBOL))
 	(multislot digits (type INTEGER))
@@ -25,25 +37,48 @@
 	
 (defrule first-look
 	=>
-	(focus FIRSTLOOK)
-	(assert (done first-look))
+	(assert (do (column 0)))
+	(focus FIRST_LOOK)
+	(assert (done (column 0)))
 )
 
-	
-(defrule calculate
-	(add
-		(op1 $? ?x)
-		(op2 $? ?y)
-		(result $? ?z)
-	)
-	?f <- (done first-look)
+(defrule select-column
+	(max-length (length ?length))
+	(done (column ?column&:(< ?column ?length)))
+	?f <- (do (column ?column))
 	=>
 	(retract ?f)
-	(assert (process ?x ?y ?z))
+	(focus SELECT_COLUMN)
 )
 
-(defrule enumerate
-	(process $? ?a $?)
+
+;***************************************************
+; PROCESS COLUMN ....can't seem to use defmodule
+;***************************************************
+(defrule process-left-most-column-result-longer
+	(do (column -1))
+	(add
+		(op1 ?x $?)
+		(op2 ?y $?)
+		(result ? ?z $?)
+	)
+	=>
+	(assert (enumerate ?x ?y ?z))
+)
+
+(defrule process-left-most-column
+	(do (column 1))
+	(add
+		(op1 ?x $?)
+		(op2 ?y $?)
+		(result ?z $?)
+	)
+	=>
+	(assert (enumerate ?x ?y ?z))
+)
+
+(defrule enumerate-with-assignments
+	(enumerate $? ?a $?)
 	(digits $? ?d $?)
 	(assign(letter ?l)(digit ?n))
 	=>
@@ -53,30 +88,22 @@
 	)
 )
 
-(defrule solving
-	(process ?op1 ?op2 ?result)
-	(enum ?op1 ?d1)
-	(enum ?op2 ?d2)
-	(enum ?result ?d3)
-
-	(test (or (and (eq ?op1 ?op2) (eq ?d1 ?d2)) (and (neq ?op1 ?op2) (neq ?d1 ?d2))))
-
-	(test (or (and (eq ?op1 ?result) (eq ?d1 ?d3)) (and (neq ?op1 ?result) (neq ?d1 ?d3))))
-
-	(test (or (and (eq ?op2 ?result) (eq ?d2 ?d3)) (and (neq ?op2 ?result) (neq ?d2 ?d3))))
-
-	(test (eq (mod (+ ?d1 ?d2) 10) ?d3))
+(defrule enumerate-without-assignments
+	(enumerate $? ?a $?)
+	(digits $? ?d $?)
+	(is-result-longer (boolean false))
 	=>
-	(assert
-		(possible 
-			(letters ?op1 ?op2 ?result)
-			(digits ?d1 ?d2 ?d3)
-		)
-	)
+	else (assert (enum ?a ?d))	
 )
 
-;**********************************************************************************************************
+;***************************************************
 
+(defrule solve-column
+	(do (column ?column))
+	=>
+	(focus SOLVE_COLUMN))
+
+;**********************************************************************************************************
 
 (defmodule SETUP (import MAIN ?ALL))
 (defrule input
@@ -94,12 +121,22 @@
 
 ;**********************************************************************************************************
 
-(defmodule FIRSTLOOK (import MAIN ?ALL))
-(defrule count-digits
+(defmodule FIRST_LOOK (import MAIN ?ALL))
+
+
+(defrule find-max-length
 	(add(op1 $?op1)(op2 $?op2)(result ?z $?rest))
-	(test (or (>(+ (length ?z)(length $?rest))(length $?op1)) (>(+ (length ?z)(length $?rest))(length ?op2))))
 	=>
-	(assert(assign (letter ?z)(digit 1)))
+	(assert (max-length (length (+ (length ?z)(length $?rest)))))
+)
+
+(defrule assign-left-most-letter-of-result
+	(add(op1 $?op1)(op2 $?op2)(result ?z $?rest))
+	(max-length (length ?max))
+	=>
+	(if (or (> ?max (length $?op1)) (> ?max (length ?op2)))
+		then (assert (is-result-longer (boolean true))) (assert(assign (letter ?z)(digit 1)))
+		else (assert (is-result-longer (boolean false))))
 )
 
 (defrule remove-digit
@@ -112,6 +149,44 @@
 )
 ;**********************************************************************************************************
 
+(defmodule SELECT_COLUMN (import MAIN ?ALL))
 
+(defrule determine-next-column
+	?f <- (done (column ?column))
+	(is-result-longer (boolean ?boolean))
+	=>
+	(if (eq ?boolean true)
+		then (assert (do (column (- ?column 1))))
+		else (assert (do (column (+ ?column 1))))
+	)
+	(retract ?f)
+)
 
+;**********************************************************************************************************
+(defmodule SOLVE_COLUMN (import MAIN ?ALL))
 
+(defrule solving
+	(do (column ?column))
+	(enumerate ?op1 ?op2 ?result)
+	(enum ?op1 ?d1)
+	(enum ?op2 ?d2)
+	(enum ?result ?d3)
+
+	(test (or (and (eq ?op1 ?op2) (eq ?d1 ?d2)) (and (neq ?op1 ?op2) (neq ?d1 ?d2))))
+
+	(test (or (and (eq ?op1 ?result) (eq ?d1 ?d3)) (and (neq ?op1 ?result) (neq ?d1 ?d3))))
+
+	(test (or (and (eq ?op2 ?result) (eq ?d2 ?d3)) (and (neq ?op2 ?result) (neq ?d2 ?d3))))
+
+	(test (eq (mod (+ ?d1 ?d2) 10) ?d3))
+	=>
+	(if  
+		(or (and (eq ?column -1) (>= (+ ?d1 ?d2) 10))(and (eq ?column 1) (< (+ ?d1 ?d2) 10)))
+
+		then (assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)))
+		else (
+			if (eq ?column -1)
+			then (assert (require carryover)))
+	)
+	(assert (done (column ?column)))
+)
