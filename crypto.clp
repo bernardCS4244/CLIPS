@@ -183,9 +183,11 @@
 ;**********************************************************************************************************
 (defmodule SOLVE_COLUMN (import MAIN ?ALL))
 
-(defrule solving
+(defrule solving-no-carry-over
 	(do (column ?column))
 	(enumerate (column ?column) (letters ?op1 ?op2 ?result))
+	(max-length (length ?length))
+	(is-result-longer (boolean ?result-longer))
 	(enum ?op1 ?d1)
 	(enum ?op2 ?d2)
 	(enum ?result ?d3)
@@ -198,13 +200,46 @@
 
 	(test (eq (mod (+ ?d1 ?d2) 10) ?d3))
 	=>
-	(if
-		(or(eq ?column -1) (eq ?column 1))
-		then(
-			if (or (and (eq ?column -1) (>= (+ ?d1 ?d2) 10))(and (eq ?column 1) (< (+ ?d1 ?d2) 10)))
-			then (assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover false)))
+	(if (or(eq ?column -1) (eq ?column 1))
+	then
+		(if (or (and (eq ?column -1) (>= (+ ?d1 ?d2) 10))(and (eq ?column 1) (< (+ ?d1 ?d2) 10)))
+		then 
+			(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover false)))
 		)
-		else(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover false)))
+	else
+		(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover false)))
+	)
+
+	(assert (done (column ?column)))
+)
+
+(defrule solving-carry-over
+	(do (column ?column))
+	(max-length (length ?length))
+	(is-result-longer (boolean ?result-longer))
+	(enumerate (column ?column) (letters ?op1 ?op2 ?result))
+	(enum ?op1 ?d1)
+	(enum ?op2 ?d2)
+	(enum ?result ?d3)
+
+	(test (or (and (eq ?op1 ?op2) (eq ?d1 ?d2)) (and (neq ?op1 ?op2) (neq ?d1 ?d2))))
+
+	(test (or (and (eq ?op1 ?result) (eq ?d1 ?d3)) (and (neq ?op1 ?result) (neq ?d1 ?d3))))
+
+	(test (or (and (eq ?op2 ?result) (eq ?d2 ?d3)) (and (neq ?op2 ?result) (neq ?d2 ?d3))))
+
+	(test (eq (mod (+ ?d1 ?d2) 10) (- ?d3 1)))
+	=>
+	(if (or(eq ?column -1) (eq ?column 1))
+	then(
+		if (or (and (eq ?column -1) (>= (+ ?d1 ?d2) 10))(and (eq ?column 1) (< (+ ?d1 ?d2) 9)))
+		then 
+			(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover true)))
+	)
+	else(
+		if (or (and (eq ?result-longer true) (< (* ?column -1) (- ?length 1)))(and(eq ?result-longer false) (< ?column ?length))) 
+		then
+			(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover true))))
 	)
 
 	(assert (done (column ?column)))
