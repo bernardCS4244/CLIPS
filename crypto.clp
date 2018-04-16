@@ -28,6 +28,10 @@
 	(multislot op1)
 	(multislot op2)
 	(multislot result))
+
+(deftemplate enumerate
+	(slot column (type INTEGER))
+	(multislot letters))
 ;*********************************************
 
 (defrule setup
@@ -74,7 +78,7 @@
 		(result $?z)
 	)
 	=>
-	(assert (enumerate (nth$ (* ?c -1) ?x)  (nth$ (* ?c -1) ?y) (nth$ (+ (* ?c -1) 1) ?z)))
+	(assert (enumerate (column ?c) (letters (nth$ (* ?c -1) ?x)  (nth$ (* ?c -1) ?y) (nth$ (+ (* ?c -1) 1) ?z))))
 )
 
 (defrule process-column
@@ -86,12 +90,12 @@
 		(result $?z)
 	)
 	=>
-	(assert (enumerate (nth$ ?c ?x)  (nth$ ?c ?y) (nth$ ?c ?z)))
+	(assert (enumerate (column ?c) (letters (nth$ ?c ?x)  (nth$ ?c ?y) (nth$ ?c ?z))))
 )
 
 
 (defrule enumerate-with-assignments
-	(enumerate $? ?a $?)
+	(enumerate (column ?) (letters $? ?a $?))
 	(digits $? ?d $?)
 	(assign(letter ?l)(digit ?n))
 	=>
@@ -102,7 +106,7 @@
 )
 
 (defrule enumerate-without-assignments
-	(enumerate $? ?a $?)
+	(enumerate (column ?) (letters $? ?a $?))
 	(digits $? ?d $?)
 	(is-result-longer (boolean false))
 	=>
@@ -180,7 +184,7 @@
 
 (defrule solving
 	(do (column ?column))
-	(enumerate ?op1 ?op2 ?result)
+	(enumerate (column ?column) (letters ?op1 ?op2 ?result))
 	(enum ?op1 ?d1)
 	(enum ?op2 ?d2)
 	(enum ?result ?d3)
@@ -193,13 +197,19 @@
 
 	(test (eq (mod (+ ?d1 ?d2) 10) ?d3))
 	=>
-	(if  
-		(or (and (eq ?column -1) (>= (+ ?d1 ?d2) 10))(and (eq ?column 1) (< (+ ?d1 ?d2) 10)))
+	(if
+		(or(eq ?column -1) (eq ?column 1))
+		then(
+			if (or (and (eq ?column -1) (>= (+ ?d1 ?d2) 10))(and (eq ?column 1) (< (+ ?d1 ?d2) 10)))
+			then (assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)))
 
-		then (assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)))
-		else (
-			if (eq ?column -1)
-			then (assert (require carryover)))
+			else (
+				if (eq ?column -1)
+				then (assert (require carryover))
+			)
+		)
+		else(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)))
 	)
+
 	(assert (done (column ?column)))
 )
