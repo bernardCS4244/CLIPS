@@ -11,19 +11,18 @@
 	(slot column))
 
 (deftemplate is-result-longer
-	(slot boolean)
-)
+	(slot boolean))
+
 (deftemplate max-length
-	(slot length (type INTEGER))
-)
+	(slot length (type INTEGER)))
+
 (deftemplate possible
 	(multislot letters (type SYMBOL))
-	(multislot digits (type INTEGER))
-)
+	(multislot digits (type INTEGER)))
+
 (deftemplate assign
 	(slot letter (type SYMBOL))
-	(slot digit (type INTEGER))
-)
+	(slot digit (type INTEGER)))
 
 (deftemplate add
 	(multislot op1)
@@ -44,7 +43,18 @@
 
 (defrule select-column
 	(max-length (length ?length))
+	(is-result-longer (boolean false))
 	(done (column ?column&:(< ?column ?length)))
+	?f <- (do (column ?column))
+	=>
+	(retract ?f)
+	(focus SELECT_COLUMN)
+)
+
+(defrule select-column-result-longer
+	(max-length (length ?length))
+	(is-result-longer (boolean true))
+	(done (column ?column&:(< (* ?column -1) (- ?length 1))))
 	?f <- (do (column ?column))
 	=>
 	(retract ?f)
@@ -55,27 +65,30 @@
 ;***************************************************
 ; PROCESS COLUMN ....can't seem to use defmodule
 ;***************************************************
-(defrule process-left-most-column-result-longer
-	(do (column -1))
+(defrule process-column-result-longer
+	(do (column ?c))
+	(is-result-longer (boolean true))
 	(add
-		(op1 ?x $?)
-		(op2 ?y $?)
-		(result ? ?z $?)
+		(op1 $?x)
+		(op2 $?y)
+		(result $?z)
 	)
 	=>
-	(assert (enumerate ?x ?y ?z))
+	(assert (enumerate (nth$ (* ?c -1) ?x)  (nth$ (* ?c -1) ?y) (nth$ (+ (* ?c -1) 1) ?z)))
 )
 
-(defrule process-left-most-column
-	(do (column 1))
+(defrule process-column
+	(do (column ?c))
+	(is-result-longer (boolean false))
 	(add
-		(op1 ?x $?)
-		(op2 ?y $?)
-		(result ?z $?)
+		(op1 $?x)
+		(op2 $?y)
+		(result $?z)
 	)
 	=>
-	(assert (enumerate ?x ?y ?z))
+	(assert (enumerate (nth$ ?c ?x)  (nth$ ?c ?y) (nth$ ?c ?z)))
 )
+
 
 (defrule enumerate-with-assignments
 	(enumerate $? ?a $?)
