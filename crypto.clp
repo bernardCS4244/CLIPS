@@ -42,17 +42,128 @@
 (deftemplate enumerate
 	(slot column (type INTEGER))
 	(multislot letters))
+
+(deftemplate enum
+	(slot letter (type SYMBOL))
+	(slot digit (type INTEGER)))
+
+(deftemplate combination
+	(multislot letters)
+	(multislot digit))
 ;*********************************************
 
 (defrule setup
+	(declare (salience 100))
 	=>
 	(focus SETUP))
 	
 (defrule first-look
+	(declare (salience 99))
 	=>
 	(assert (do (column 0)))
 	(focus FIRST_LOOK)
 )
+
+(defrule select-column
+	(declare (salience 97))
+	(max-length (length ?max))
+	(done (column ?column&:(< ?column ?max)))
+	=>
+	(focus SELECT_COLUMN)
+)
+
+(defrule process-column
+	(declare (salience 96))
+	(do (column ?column))
+	=>
+	(focus PROCESS_COLUMN)
+)
+
+(defrule permutate-possibilities
+	(declare (salience 95))
+	(do (column ?column))
+	=>
+	(focus PERMUTATE_POSSIBILITIES))
+
+;**********************************************************************************************************
+
+(defmodule SETUP (import MAIN ?ALL))
+(defrule input
+	=>
+	(printout t "op1: ")
+	(bind ?op1 (readline))
+	(printout t "op2: ")
+	(bind ?op2 (readline))
+	(printout t "result: ")
+	(bind ?result (readline))
+	(assert (add 
+		(op1 (explode$ ?op1))
+		(op2 (explode$ ?op2))
+		(result (explode$ ?result)))))
+
+;**********************************************************************************************************
+
+(defmodule FIRST_LOOK (import MAIN ?ALL))
+
+
+(defrule find-max-length
+	(add(op1 $?op1)(op2 $?op2)(result ?z $?rest))
+	=>
+	(assert (max-length (length (+ (length ?z)(length $?rest)))))
+)
+
+(defrule analyze-length
+	(add(op1 $?op1)(op2 $?op2)(result ?z $?rest))
+	(max-length (length ?max))
+	=>
+	(if (and (> ?max (length $?op1)) (> ?max (length ?op2)))
+	then 
+		(assert (is-result-longer (boolean true))) (assert(assign (letter ?z)(digit 1)))
+	else 
+		(assert (is-result-longer (boolean false)))
+	)
+	(if (> (length ?op1) (length ?op2))
+	then
+		(assert (shorter-operand (operand 2)))
+		(assert (min-length (length (length ?op2))))
+		(assert (are-operands-same-length (boolean false)))
+	else
+		(if (> (length ?op2) (length ?op1))
+		then
+			(assert (shorter-operand (operand 1)))
+			(assert (min-length (length (length ?op1))))
+			(assert (are-operands-same-length (boolean false)))
+		else
+			(assert (min-length (length (length ?op1))))
+			(assert (are-operands-same-length (boolean true)))
+		)	
+	)
+	(assert (done (column 0)))
+)
+
+(defrule check-last-column
+	(add(op1 $? ?x)(op2 $? ?y)(result $? ?z))
+	(test (or (eq ?x ?z) (eq ?y ?z)))
+	=>
+	(if (eq ?x ?z)
+		then (assert (assign (letter ?y)(digit 0)))
+		else (assert (assign (letter ?x)(digit 0)))
+	)
+	(assert (done (column 0)))
+)
+
+(defrule remove-digit
+	(assign(letter ?l)(digit ?d2))
+	?f <- (digits $?before ?d1 $?after)
+	(test (eq ?d1 ?d2))
+	=>
+	(retract ?f)
+	(assert (digits $?before $?after))
+	(assert (done (column 0)))
+)
+
+;**********************************************************************************************************
+(defmodule SELECT_COLUMN (import MAIN ?ALL))
 
 (defrule select-column-result-longer
 	(max-length (length ?max))
@@ -82,9 +193,9 @@
 	(retract ?f1)
 	(retract ?f2)
 )
-;***************************************************
-; PROCESS COLUMN ....can't seem to use defmodule
-;***************************************************
+
+;**********************************************************************************************************
+(defmodule PROCESS_COLUMN (import MAIN ?ALL))
 
 (defrule process-column-operands-diff-length-result-longer
 	(do (column ?c))
@@ -178,8 +289,8 @@
 	(assign(letter ?l)(digit ?n))
 	=>
 	(if (eq ?a ?l)
-		then (assert (enum ?l ?n))
-		else (assert (enum ?a ?d))
+		then (assert (enum (letter ?l) (digit ?n)))
+		else (assert (enum (letter ?a) (digit ?d)))
 	)
 )
 
@@ -188,104 +299,20 @@
 	(digits $? ?d $?)
 	(is-result-longer (boolean false))
 	=>
-	else (assert (enum ?a ?d))	
-)
-
-;***************************************************
-
-(defrule solve-column
-	(do (column ?column))
-	=>
-	(focus SOLVE_COLUMN))
-
-;**********************************************************************************************************
-
-(defmodule SETUP (import MAIN ?ALL))
-(defrule input
-	=>
-	(printout t "op1: ")
-	(bind ?op1 (readline))
-	(printout t "op2: ")
-	(bind ?op2 (readline))
-	(printout t "result: ")
-	(bind ?result (readline))
-	(assert (add 
-		(op1 (explode$ ?op1))
-		(op2 (explode$ ?op2))
-		(result (explode$ ?result)))))
-
-;**********************************************************************************************************
-
-(defmodule FIRST_LOOK (import MAIN ?ALL))
-
-
-(defrule find-max-length
-	(add(op1 $?op1)(op2 $?op2)(result ?z $?rest))
-	=>
-	(assert (max-length (length (+ (length ?z)(length $?rest)))))
-)
-
-(defrule analyze-length
-	(add(op1 $?op1)(op2 $?op2)(result ?z $?rest))
-	(max-length (length ?max))
-	=>
-	(if (and (> ?max (length $?op1)) (> ?max (length ?op2)))
-	then 
-		(assert (is-result-longer (boolean true))) (assert(assign (letter ?z)(digit 1)))
-	else 
-		(assert (is-result-longer (boolean false)))
-	)
-	(if (> (length ?op1) (length ?op2))
-	then
-		(assert (shorter-operand (operand 2)))
-		(assert (min-length (length (length ?op2))))
-		(assert (are-operands-same-length (boolean false)))
-	else
-		(if (> (length ?op2) (length ?op1))
-		then
-			(assert (shorter-operand (operand 1)))
-			(assert (min-length (length (length ?op1))))
-			(assert (are-operands-same-length (boolean false)))
-		else
-			(assert (min-length (length (length ?op1))))
-			(assert (are-operands-same-length (boolean true)))
-		)	
-	)
-	(assert (done (column 0)))
-)
-
-(defrule check-last-column
-	(add(op1 $? ?x)(op2 $? ?y)(result $? ?z))
-	(test (or (eq ?x ?z) (eq ?y ?z)))
-	=>
-	(if (eq ?x ?z)
-		then (assert (assign (letter ?y)(digit 0)))
-		else (assert (assign (letter ?x)(digit 0)))
-	)
-	(assert (done (column 0)))
-)
-
-(defrule remove-digit
-	(assign(letter ?l)(digit ?d2))
-	?f <- (digits $?before ?d1 $?after)
-	(test (eq ?d1 ?d2))
-	=>
-	(retract ?f)
-	(assert (digits $?before $?after))
-	(assert (done (column 0)))
+	else (assert (enum (letter ?a) (digit ?d)))
 )
 
 ;**********************************************************************************************************
-(defmodule SOLVE_COLUMN (import MAIN ?ALL))
+(defmodule PERMUTATE_POSSIBILITIES (import MAIN ?ALL))
 
-(defrule solving-no-carry-over-3-letters
+(defrule permutate-no-carry-over-3-letters
 	(do (column ?column))
 	(enumerate (column ?column) (letters ?op1 ?op2 ?result))
 	(max-length (length ?length))
 	(is-result-longer (boolean ?result-longer))
-	(enum ?op1 ?d1)
-	(enum ?op2 ?d2)
-	(enum ?result ?d3)
+	(enum (letter ?op1) (digit ?d1))
+	(enum (letter ?op2) (digit ?d2))
+	(enum (letter ?result) (digit ?d3))
 
 	(test (or (and (eq ?op1 ?op2) (eq ?d1 ?d2)) (and (neq ?op1 ?op2) (neq ?d1 ?d2))))
 
@@ -307,14 +334,14 @@
 	(assert (done (column ?column)))
 )
 
-(defrule solving-carry-over-3-letters
+(defrule permutate-carry-over-3-letters
 	(do (column ?column))
 	(max-length (length ?length))
 	(is-result-longer (boolean ?result-longer))
 	(enumerate (column ?column) (letters ?op1 ?op2 ?result))
-	(enum ?op1 ?d1)
-	(enum ?op2 ?d2)
-	(enum ?result ?d3)
+	(enum (letter ?op1) (digit ?d1))
+	(enum (letter ?op2) (digit ?d2))
+	(enum (letter ?result) (digit ?d3))
 
 	(test (or (and (eq ?op1 ?op2) (eq ?d1 ?d2)) (and (neq ?op1 ?op2) (neq ?d1 ?d2))))
 
@@ -338,11 +365,11 @@
 	(assert (done (column ?column)))
 )
 
-(defrule solving-2-letters-same
+(defrule permutate-2-letters-same
 	(do (column ?column))
 	(enumerate (column ?column) (letters ?op ?result))
-	(enum ?op ?d1)
-	(enum ?result ?d3)
+	(enum (letter ?op) (digit ?d1))
+	(enum (letter ?result) (digit ?d3))
 
 	(test (and (eq ?op ?result) (eq ?d1 ?d3)))
 
@@ -352,11 +379,11 @@
 	(assert (done (column ?column)))
 )
 
-(defrule solving-2-letters-diff
+(defrule permutate-2-letters-diff
 	(do (column ?column))
 	(enumerate (column ?column) (letters ?op ?result))
-	(enum ?op ?d1)
-	(enum ?result ?d3)
+	(enum (letter ?op) (digit ?d1))
+	(enum (letter ?result) (digit ?d3))
 
 	(test (and(and (neq ?op ?result) (neq ?d1 ?d3))(eq(- ?d3 ?d1)1)))
 
@@ -365,3 +392,5 @@
 
 	(assert (done (column ?column)))
 )
+
+
