@@ -1,9 +1,8 @@
 (defmodule MAIN (export ?ALL))
-	
 (deffacts input
 		(digits 0 1 2 3 4 5 6 7 8 9))
-
-;**************TEMPLATES*********************
+	
+;************** TEMPLATES *********************
 (deftemplate do
 	(slot column))
 
@@ -49,8 +48,8 @@
 
 (deftemplate combination
 	(multislot letters)
-	(multislot digit))
-;*********************************************
+	(multislot numbers)) 
+;************* PROGRAM FLOW ********************************
 
 (defrule setup
 	(declare (salience 100))
@@ -61,23 +60,20 @@
 	(declare (salience 99))
 	=>
 	(assert (do (column 0)))
-	(focus FIRST_LOOK)
-)
+	(focus FIRST_LOOK))
 
 (defrule select-column
 	(declare (salience 97))
 	(max-length (length ?max))
 	(done (column ?column&:(< ?column ?max)))
 	=>
-	(focus SELECT_COLUMN)
-)
+	(focus SELECT_COLUMN))
 
 (defrule process-column
 	(declare (salience 96))
 	(do (column ?column))
 	=>
-	(focus PROCESS_COLUMN)
-)
+	(focus PROCESS_COLUMN))
 
 (defrule permutate-possibilities
 	(declare (salience 95))
@@ -85,9 +81,17 @@
 	=>
 	(focus PERMUTATE_POSSIBILITIES))
 
-;**********************************************************************************************************
+(defule combine-permutations
+	(declare (salience 94))
+	(do (column ?column))
+	=>
+	(focus COMBINE_PERMUTATIONS))
+
+; **********************************************************************************************************
 
 (defmodule SETUP (import MAIN ?ALL))
+(deffacts empty-combination
+		(combination (letters nil) (numbers nil)))
 (defrule input
 	=>
 	(printout t "op1: ")
@@ -109,8 +113,7 @@
 (defrule find-max-length
 	(add(op1 $?op1)(op2 $?op2)(result ?z $?rest))
 	=>
-	(assert (max-length (length (+ (length ?z)(length $?rest)))))
-)
+	(assert (max-length (length (+ (length ?z)(length $?rest))))))
 
 (defrule analyze-length
 	(add(op1 $?op1)(op2 $?op2)(result ?z $?rest))
@@ -138,8 +141,7 @@
 			(assert (are-operands-same-length (boolean true)))
 		)	
 	)
-	(assert (done (column 0)))
-)
+	(assert (done (column 0))))
 
 (defrule check-last-column
 	(add(op1 $? ?x)(op2 $? ?y)(result $? ?z))
@@ -149,8 +151,7 @@
 		then (assert (assign (letter ?y)(digit 0)))
 		else (assert (assign (letter ?x)(digit 0)))
 	)
-	(assert (done (column 0)))
-)
+	(assert (done (column 0))))
 
 (defrule remove-digit
 	(assign(letter ?l)(digit ?d2))
@@ -159,8 +160,7 @@
 	=>
 	(retract ?f)
 	(assert (digits $?before $?after))
-	(assert (done (column 0)))
-)
+	(assert (done (column 0))))
 
 ;**********************************************************************************************************
 (defmodule SELECT_COLUMN (import MAIN ?ALL))
@@ -179,8 +179,7 @@
 		(assert (do (column (+ ?column 1))))
 	)
 	(retract ?f1)
-	(retract ?f2)
-)
+	(retract ?f2))
 
 (defrule select-column-result-not-longer
 	(max-length (length ?max))
@@ -191,8 +190,7 @@
 	=>
 	(assert (do (column (+ ?column 1))))
 	(retract ?f1)
-	(retract ?f2)
-)
+	(retract ?f2))
 
 ;**********************************************************************************************************
 (defmodule PROCESS_COLUMN (import MAIN ?ALL))
@@ -224,8 +222,7 @@
 		else
 			(assert (enumerate (column ?c) (letters (nth$ (- ?c 1) ?x)  (nth$ (- ?c (- ?max ?min)) ?y) (nth$ ?c ?z))))
 		)
-	) 
-)
+	) )
 
 (defrule process-column-operands-diff-length-result-same
 	(do (column ?c))
@@ -254,8 +251,7 @@
 		else
 			(assert (enumerate (column ?c) (letters (nth$ ?c ?x)  (nth$ (- ?c (- ?max ?min)) ?y) (nth$ ?c ?z))))
 		)
-	) 
-)
+	) )
 
 (defrule process-column-all-same-length
 	(do (column ?c))
@@ -267,8 +263,7 @@
 		(result $?z)
 	)
 	=>
-	(assert (enumerate (column ?c) (letters (nth$ ?c ?x)  (nth$ ?c ?y) (nth$ ?c ?z))))
-)
+	(assert (enumerate (column ?c) (letters (nth$ ?c ?x)  (nth$ ?c ?y) (nth$ ?c ?z)))))
 
 (defrule process-column-result-longer-operands-same-length
 	(do (column ?c))
@@ -280,27 +275,38 @@
 		(result $?z)
 	)
 	=>
-	(assert (enumerate (column ?c) (letters (nth$ (- ?c 1) ?x)  (nth$ (- ?c 1) ?y) (nth$ ?c ?z))))
-)
+	(assert (enumerate (column ?c) (letters (nth$ (- ?c 1) ?x)  (nth$ (- ?c 1) ?y) (nth$ ?c ?z)))))
 
 (defrule enumerate-with-assignments
 	(enumerate (column ?) (letters $? ?a $?))
 	(digits $? ?d $?)
 	(assign(letter ?l)(digit ?n))
+	?f <- (combination (letters $?front ?combination_letters $?back) (numbers $?front2 ?combination_digits $?back2))
+
+	(test (neq ?combination_letters ?l))
 	=>
 	(if (eq ?a ?l)
-		then (assert (enum (letter ?l) (digit ?n)))
-		else (assert (enum (letter ?a) (digit ?d)))
-	)
-)
+	then
+		(if(eq ?combination_letters nil)
+		then
+			(assert (combination (letters ?l) (numbers ?n)))
+			(retract ?f)
+		else
+			(assert (combination (letters ?front ?combination_letters ?back ?l) (numbers ?front2 ?combination_digits ?back2 ?n)))
+			(retract ?f)
+		) 
+		(assert (enum (letter ?l) (digit ?n)))
+
+	else 
+		(assert (enum (letter ?a) (digit ?d)))
+	))
 
 (defrule enumerate-without-assignments
 	(enumerate (column ?) (letters $? ?a $?))
 	(digits $? ?d $?)
 	(is-result-longer (boolean false))
 	=>
-	else (assert (enum (letter ?a) (digit ?d)))
-)
+	else (assert (enum (letter ?a) (digit ?d))))
 
 ;**********************************************************************************************************
 (defmodule PERMUTATE_POSSIBILITIES (import MAIN ?ALL))
@@ -330,9 +336,7 @@
 		then
 			(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover false)))
 		)
-	)	
-	(assert (done (column ?column)))
-)
+	))	
 
 (defrule permutate-carry-over-3-letters
 	(do (column ?column))
@@ -361,9 +365,7 @@
 		then
 			(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover true)))
 		)
-	)
-	(assert (done (column ?column)))
-)
+	))
 
 (defrule permutate-2-letters-same
 	(do (column ?column))
@@ -375,9 +377,7 @@
 
 	=>
 
-	(assert(possible (letters ?op ?result)(digits ?d1 ?d3)(carryover false)))
-	(assert (done (column ?column)))
-)
+	(assert(possible (letters ?op ?result)(digits ?d1 ?d3)(carryover false))))
 
 (defrule permutate-2-letters-diff
 	(do (column ?column))
@@ -388,9 +388,16 @@
 	(test (and(and (neq ?op ?result) (neq ?d1 ?d3))(eq(- ?d3 ?d1)1)))
 
 	=>
-	(assert(possible (letters ?op ?result)(digits ?d1 ?d3)(carryover true)))
+	(assert(possible (letters ?op ?result)(digits ?d1 ?d3)(carryover true))))
 
-	(assert (done (column ?column)))
+;**********************************************************************************************************
+(defmodule COMBINE_PERMUTATION (import MAIN ?ALL))
+
+(defrule combine-permuations
+	(do (column ?column))
+	(enumerate (column ?column) (letters ?$?l))
+	(possible (letters $?l) (digits $?d) (carryover ?carryover))
+	(combination (letters ?combination_letters) (digits ?combination_digits))
 )
 
 
