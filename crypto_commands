@@ -5,6 +5,6 @@
 (load "crypto.clp")
 (reset)
 (run)
-  O H
-  N O
-L O H
+O H
+N O
+L O

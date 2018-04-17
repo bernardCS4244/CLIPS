@@ -81,11 +81,13 @@
 	=>
 	(focus PERMUTATE_POSSIBILITIES))
 
-(defule combine-permutations
+(defrule combine-permutations
 	(declare (salience 94))
 	(do (column ?column))
 	=>
+	(assert (done (column ?column)))
 	(focus COMBINE_PERMUTATIONS))
+
 
 ; **********************************************************************************************************
 
@@ -118,9 +120,17 @@
 (defrule analyze-length
 	(add(op1 $?op1)(op2 $?op2)(result ?z $?rest))
 	(max-length (length ?max))
+	?f <- (combination (letters $?front ?combination_letters $?back) (numbers $?front2 ?combination_digits $?back2))
+
+	(test (eq ?combination_letters nil))
 	=>
 	(if (and (> ?max (length $?op1)) (> ?max (length ?op2)))
 	then 
+		(if(eq ?combination_letters nil)
+		then
+			(assert (combination (letters ?z) (numbers 1)))
+			(retract ?f)
+		) 
 		(assert (is-result-longer (boolean true))) (assert(assign (letter ?z)(digit 1)))
 	else 
 		(assert (is-result-longer (boolean false)))
@@ -278,12 +288,12 @@
 	(assert (enumerate (column ?c) (letters (nth$ (- ?c 1) ?x)  (nth$ (- ?c 1) ?y) (nth$ ?c ?z)))))
 
 (defrule enumerate-with-assignments
-	(enumerate (column ?) (letters $? ?a $?))
+	(do (column ?c))
+	(enumerate (column ?c) (letters $? ?a $?))
 	(digits $? ?d $?)
-	(assign(letter ?l)(digit ?n))
+	?g <- (assign(letter ?l)(digit ?n))
 	?f <- (combination (letters $?front ?combination_letters $?back) (numbers $?front2 ?combination_digits $?back2))
 
-	(test (neq ?combination_letters ?l))
 	=>
 	(if (eq ?a ?l)
 	then
@@ -291,9 +301,13 @@
 		then
 			(assert (combination (letters ?l) (numbers ?n)))
 			(retract ?f)
+			(retract ?g)
 		else
-			(assert (combination (letters ?front ?combination_letters ?back ?l) (numbers ?front2 ?combination_digits ?back2 ?n)))
-			(retract ?f)
+			(if (neq ?combination_letters ?l)
+			then
+				(assert (combination (letters ?front ?combination_letters ?back ?l) (numbers ?front2 ?combination_digits ?back2 ?n)))
+				(retract ?f)
+				(retract ?g))
 		) 
 		(assert (enum (letter ?l) (digit ?n)))
 
@@ -302,6 +316,7 @@
 	))
 
 (defrule enumerate-without-assignments
+	(do (column ?c))
 	(enumerate (column ?) (letters $? ?a $?))
 	(digits $? ?d $?)
 	(is-result-longer (boolean false))
@@ -391,13 +406,22 @@
 	(assert(possible (letters ?op ?result)(digits ?d1 ?d3)(carryover true))))
 
 ;**********************************************************************************************************
-(defmodule COMBINE_PERMUTATION (import MAIN ?ALL))
+(defmodule COMBINE_PERMUTATIONS (import MAIN ?ALL))
 
-(defrule combine-permuations
+(defrule combine-permutations-result-longer
 	(do (column ?column))
-	(enumerate (column ?column) (letters ?$?l))
-	(possible (letters $?l) (digits $?d) (carryover ?carryover))
-	(combination (letters ?combination_letters) (digits ?combination_digits))
+	(is-result-longer (boolean true))
+	(enumerate (column ?column) (letters $? ?l $?))
+	?f1 <- (possible (letters $?poss_front ?l $?poss_back) (digits $?poss_frontd ?d $?poss_backd) (carryover ?carryover))
+	(combination (letters $?combi_front ?combi_letter $?combi_back) (numbers $?combi_frontd ?combi_digit $?combi_backd))
+
+	(test (and(eq ?l ?combi_letter)(eq ?d ?combi_digit)))
+
+	=>
+	(if (eq ?column 2)
+	then
+		(assert (combination (letters ?combi_front ?combi_letter ?combi_back ?poss_front ?poss_back) (numbers ?combi_frontd ?combi_digit ?combi_backd ?poss_frontd ?poss_backd)))
+		(retract ?f1))
 )
 
 
