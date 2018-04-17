@@ -13,7 +13,16 @@
 (deftemplate is-result-longer
 	(slot boolean))
 
+(deftemplate are-operands-same-length
+	(slot boolean))
+
+(deftemplate shorter-operand
+	(slot operand (type INTEGER)))
+
 (deftemplate max-length
+	(slot length (type INTEGER)))
+
+(deftemplate min-length
 	(slot length (type INTEGER)))
 
 (deftemplate possible
@@ -43,48 +52,104 @@
 	=>
 	(assert (do (column 0)))
 	(focus FIRST_LOOK)
-	(assert (done (column 0)))
-)
-
-(defrule select-column
-	(max-length (length ?length))
-	(is-result-longer (boolean false))
-	(done (column ?column&:(< ?column ?length)))
-	?f <- (do (column ?column))
-	=>
-	(retract ?f)
-	(focus SELECT_COLUMN)
 )
 
 (defrule select-column-result-longer
-	(max-length (length ?length))
+	(max-length (length ?max))
 	(is-result-longer (boolean true))
-	(done (column ?column&:(< (* ?column -1) (- ?length 1))))
-	?f <- (do (column ?column))
+	(done (column ?column&:(< ?column ?max)))
+	?f1 <- (do (column ?column))
+	?f2 <- (done (column ?column))
 	=>
-	(retract ?f)
-	(focus SELECT_COLUMN)
+	(if (eq ?column 0)
+	then 
+		(assert (do (column 2)))
+	else
+		(assert (do (column (+ ?column 1))))
+	)
+	(retract ?f1)
+	(retract ?f2)
 )
 
-
+(defrule select-column-result-not-longer
+	(max-length (length ?max))
+	(is-result-longer (boolean false))
+	(done (column ?column&:(< ?column ?max)))
+	?f1 <- (do (column ?column))
+	?f2 <- (done (column ?column))
+	=>
+	(assert (do (column (+ ?column 1))))
+	(retract ?f1)
+	(retract ?f2)
+)
 ;***************************************************
 ; PROCESS COLUMN ....can't seem to use defmodule
 ;***************************************************
-(defrule process-column-result-longer
+
+(defrule process-column-operands-diff-length-result-longer
 	(do (column ?c))
+	(shorter-operand (operand ?shortest))
 	(is-result-longer (boolean true))
+	(min-length (length ?min))
+	(max-length (length ?max))
 	(add
 		(op1 $?x)
 		(op2 $?y)
 		(result $?z)
 	)
 	=>
-	(assert (enumerate (column ?c) (letters (nth$ (* ?c -1) ?x)  (nth$ (* ?c -1) ?y) (nth$ (+ (* ?c -1) 1) ?z))))
+	(if (<= (+ ?c ?min) ?max)
+	then
+		(if (eq ?shortest 1)
+		then
+			(assert (enumerate (column ?c) (letters (nth$ (- ?c 1) ?y) (nth$ ?c ?z))))
+		else
+			(assert (enumerate (column ?c) (letters (nth$ (- ?c 1) ?x) (nth$ ?c ?z))))
+		)
+	else
+		(if (eq ?shortest 1)
+		then
+			(assert (enumerate (column ?c) (letters (nth$ (- ?c (- ?max ?min)) ?x)  (nth$ (- ?c 1) ?y) (nth$ ?c ?z))))
+		else
+			(assert (enumerate (column ?c) (letters (nth$ (- ?c 1) ?x)  (nth$ (- ?c (- ?max ?min)) ?y) (nth$ ?c ?z))))
+		)
+	) 
 )
 
-(defrule process-column
+(defrule process-column-operands-diff-length-result-same
+	(do (column ?c))
+	(shorter-operand (operand ?shortest))
+	(is-result-longer (boolean false))
+	(min-length (length ?min))
+	(max-length (length ?max))
+	(add
+		(op1 $?x)
+		(op2 $?y)
+		(result $?z)
+	)
+	=>
+	(if (<= (+ ?c ?min) ?max)
+	then
+		(if (eq ?shortest 1)
+		then
+			(assert (enumerate (column ?c) (letters (nth$ ?c ?y) (nth$ ?c ?z))))
+		else
+			(assert (enumerate (column ?c) (letters (nth$ ?c ?x) (nth$ ?c ?z))))
+		)
+	else
+		(if (eq ?shortest 1)
+		then
+			(assert (enumerate (column ?c) (letters (nth$ (- ?c (- ?max ?min)) ?x)  (nth$ ?c ?y) (nth$ ?c ?z))))
+		else
+			(assert (enumerate (column ?c) (letters (nth$ ?c ?x)  (nth$ (- ?c (- ?max ?min)) ?y) (nth$ ?c ?z))))
+		)
+	) 
+)
+
+(defrule process-column-all-same-length
 	(do (column ?c))
 	(is-result-longer (boolean false))
+	(are-operands-same-length (boolean true))
 	(add
 		(op1 $?x)
 		(op2 $?y)
@@ -94,6 +159,18 @@
 	(assert (enumerate (column ?c) (letters (nth$ ?c ?x)  (nth$ ?c ?y) (nth$ ?c ?z))))
 )
 
+(defrule process-column-result-longer-operands-same-length
+	(do (column ?c))
+	(is-result-longer (boolean true))
+	(are-operands-same-length (boolean true))
+	(add
+		(op1 $?x)
+		(op2 $?y)
+		(result $?z)
+	)
+	=>
+	(assert (enumerate (column ?c) (letters (nth$ (- ?c 1) ?x)  (nth$ (- ?c 1) ?y) (nth$ ?c ?z))))
+)
 
 (defrule enumerate-with-assignments
 	(enumerate (column ?) (letters $? ?a $?))
@@ -148,13 +225,44 @@
 	(assert (max-length (length (+ (length ?z)(length $?rest)))))
 )
 
-(defrule assign-left-most-letter-of-result
+(defrule analyze-length
 	(add(op1 $?op1)(op2 $?op2)(result ?z $?rest))
 	(max-length (length ?max))
 	=>
-	(if (or (> ?max (length $?op1)) (> ?max (length ?op2)))
-		then (assert (is-result-longer (boolean true))) (assert(assign (letter ?z)(digit 1)))
-		else (assert (is-result-longer (boolean false))))
+	(if (and (> ?max (length $?op1)) (> ?max (length ?op2)))
+	then 
+		(assert (is-result-longer (boolean true))) (assert(assign (letter ?z)(digit 1)))
+	else 
+		(assert (is-result-longer (boolean false)))
+	)
+	(if (> (length ?op1) (length ?op2))
+	then
+		(assert (shorter-operand (operand 2)))
+		(assert (min-length (length (length ?op2))))
+		(assert (are-operands-same-length (boolean false)))
+	else
+		(if (> (length ?op2) (length ?op1))
+		then
+			(assert (shorter-operand (operand 1)))
+			(assert (min-length (length (length ?op1))))
+			(assert (are-operands-same-length (boolean false)))
+		else
+			(assert (min-length (length (length ?op1))))
+			(assert (are-operands-same-length (boolean true)))
+		)	
+	)
+	(assert (done (column 0)))
+)
+
+(defrule check-last-column
+	(add(op1 $? ?x)(op2 $? ?y)(result $? ?z))
+	(test (or (eq ?x ?z) (eq ?y ?z)))
+	=>
+	(if (eq ?x ?z)
+		then (assert (assign (letter ?y)(digit 0)))
+		else (assert (assign (letter ?x)(digit 0)))
+	)
+	(assert (done (column 0)))
 )
 
 (defrule remove-digit
@@ -164,26 +272,13 @@
 	=>
 	(retract ?f)
 	(assert (digits $?before $?after))
-)
-;**********************************************************************************************************
-
-(defmodule SELECT_COLUMN (import MAIN ?ALL))
-
-(defrule determine-next-column
-	?f <- (done (column ?column))
-	(is-result-longer (boolean ?boolean))
-	=>
-	(if (eq ?boolean true)
-		then (assert (do (column (- ?column 1))))
-		else (assert (do (column (+ ?column 1))))
-	)
-	(retract ?f)
+	(assert (done (column 0)))
 )
 
 ;**********************************************************************************************************
 (defmodule SOLVE_COLUMN (import MAIN ?ALL))
 
-(defrule solving-no-carry-over
+(defrule solving-no-carry-over-3-letters
 	(do (column ?column))
 	(enumerate (column ?column) (letters ?op1 ?op2 ?result))
 	(max-length (length ?length))
@@ -200,20 +295,19 @@
 
 	(test (eq (mod (+ ?d1 ?d2) 10) ?d3))
 	=>
-	(if (or(eq ?column -1) (eq ?column 1))
+	(if (or(and (eq ?column 1) (< (+ ?d1 ?d2) 10))(and(and(eq ?column 2)(eq ?result-longer true)) (>= (+ ?d1 ?d2) 10)))
 	then
-		(if (or (and (eq ?column -1) (>= (+ ?d1 ?d2) 10))(and (eq ?column 1) (< (+ ?d1 ?d2) 10)))
-		then 
+		(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover false)))
+	else
+		(if (or(and(> ?column 1)(eq ?result-longer false))(and(> ?column 2)(eq ?result-longer true)))
+		then
 			(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover false)))
 		)
-	else
-		(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover false)))
-	)
-
+	)	
 	(assert (done (column ?column)))
 )
 
-(defrule solving-carry-over
+(defrule solving-carry-over-3-letters
 	(do (column ?column))
 	(max-length (length ?length))
 	(is-result-longer (boolean ?result-longer))
@@ -229,18 +323,45 @@
 	(test (or (and (eq ?op2 ?result) (eq ?d2 ?d3)) (and (neq ?op2 ?result) (neq ?d2 ?d3))))
 
 	(test (eq (mod (+ ?d1 ?d2) 10) (- ?d3 1)))
+
+	(test (< ?column ?length))
 	=>
-	(if (or(eq ?column -1) (eq ?column 1))
-	then(
-		if (or (and (eq ?column -1) (>= (+ ?d1 ?d2) 10))(and (eq ?column 1) (< (+ ?d1 ?d2) 9)))
-		then 
-			(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover true)))
-	)
-	else(
-		if (or (and (eq ?result-longer true) (< (* ?column -1) (- ?length 1)))(and(eq ?result-longer false) (< ?column ?length))) 
+	(if (or(and (eq ?column 1) (< (+ ?d1 ?d2) 9))(and(and(eq ?column 2)(eq ?result-longer true)) (>= (+ ?d1 ?d2) 10)))
+	then
+		(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover true)))
+	else
+		(if (or(and(> ?column 1)(eq ?result-longer false))(and(> ?column 2)(eq ?result-longer true)))
 		then
-			(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover true))))
+			(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover true)))
+		)
 	)
+	(assert (done (column ?column)))
+)
+
+(defrule solving-2-letters-same
+	(do (column ?column))
+	(enumerate (column ?column) (letters ?op ?result))
+	(enum ?op ?d1)
+	(enum ?result ?d3)
+
+	(test (and (eq ?op ?result) (eq ?d1 ?d3)))
+
+	=>
+
+	(assert(possible (letters ?op ?result)(digits ?d1 ?d3)(carryover false)))
+	(assert (done (column ?column)))
+)
+
+(defrule solving-2-letters-diff
+	(do (column ?column))
+	(enumerate (column ?column) (letters ?op ?result))
+	(enum ?op ?d1)
+	(enum ?result ?d3)
+
+	(test (and(and (neq ?op ?result) (neq ?d1 ?d3))(eq(- ?d3 ?d1)1)))
+
+	=>
+	(assert(possible (letters ?op ?result)(digits ?d1 ?d3)(carryover true)))
 
 	(assert (done (column ?column)))
 )
