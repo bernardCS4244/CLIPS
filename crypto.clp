@@ -48,6 +48,7 @@
 	(slot digit (type INTEGER)))
 
 (deftemplate combination
+	(slot column)
 	(multislot letters)
 	(multislot numbers)) 
 ;************* PROGRAM FLOW ********************************
@@ -398,9 +399,9 @@
 ;**********************************************************************************************************
 (defmodule COMBINE_PERMUTATIONS (import MAIN ?ALL))
 
-(defrule form-combinations
+(defrule merge-possibilities-3-letters
 	(possible (column ?column1)(letters ?l1 ?l2 ?l3) (digits ?d1 ?d2 ?d3) (carryover ?carryover1))
-	(possible (column ?column2)(letters ?l4 ?l5 ?l6) (digits ?d4 ?d5 ?d6) (carryover ?carryover2))
+	(possible (column ?column2&~?column1)(letters ?l4 ?l5 ?l6) (digits ?d4 ?d5 ?d6) (carryover ?carryover2))
 
 	(test (eq ?column2 (+ ?column1 1)))
 
@@ -472,11 +473,38 @@
 	(or(and(eq ?l2 ?l4)(eq ?d2 ?d4))(and(neq ?l2 ?l4)(neq ?d2 ?d4))))))
 
 
-	(and(and(and(and(and(and(and(and(neq ?l1 ?l4)(neq ?l1 ?l5))(neq ?l1 ?l6))(neq ?l2 ?l4))(neq ?l2 ?l5))(neq ?l2 ?l6))(neq ?l3 ?l4))(neq ?l3 ?l5))(neq ?l3 ?l6))))
+	(and(and(and(and(and(and(and(and
+
+	(and(neq ?l1 ?l4)(neq ?d1 ?d4))
+
+	(and(neq ?l1 ?l5)(neq ?d1 ?d5)))
+
+	(and(neq ?l1 ?l6)(neq ?d1 ?d6)))
+
+	(and(neq ?l2 ?l4)(neq ?d2 ?d4)))
+
+	(and(neq ?l2 ?l5)(neq ?d2 ?d5)))
+
+	(and(neq ?l2 ?l6)(neq ?d2 ?d6)))
+
+	(and(neq ?l3 ?l4)(neq ?d3 ?d4)))
+
+	(and(neq ?l3 ?l5)(neq ?d3 ?d5)))
+
+	(and(neq ?l3 ?l6)(neq ?d3 ?d6)))))
 
 
 	=>
-	(assert (combination (letters ?l1 ?l2 ?l3 ?l4 ?l5 ?l6) (numbers ?d1 ?d2 ?d3 ?d4 ?d5 ?d6)))
+	(assert (combination (column ?column2) (letters ?l1 ?l2 ?l3 ?l4 ?l5 ?l6) (numbers ?d1 ?d2 ?d3 ?d4 ?d5 ?d6)))
+)
+
+(defrule merge-combinations-3-letters
+	(combination (column ?column1)(letters $?l1 ?l2 ?l3 ?l4) (numbers $?n1 ?n2 ?n3 ?n4))
+	(combination (column ?column2&:(eq ?column2 (+ ?column1 1)))(letters ?l2 ?l3 ?l4 $?l5) (numbers  ?n2 ?n3 ?n4 $?n5))
+
+
+	=>
+	(assert (combination (column (+ ?column2 1)) (letters $?l1 ?l2 ?l3 ?l4 $?l5)(numbers $?n1 ?n2 ?n3 ?n4 $?n5)))
 )
 
 
