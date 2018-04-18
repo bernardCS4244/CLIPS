@@ -5,6 +5,6 @@
 (load "crypto.clp")
 (reset)
 (run)
-S E N D
-M O R E
-M O N E Y
+O N E
+F O U R
+F I V E

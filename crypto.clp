@@ -395,7 +395,7 @@
 	(enum (letter ?op) (digit ?d1))
 	(enum (letter ?result) (digit ?d3))
 
-	(test (and(and (neq ?op ?result) (neq ?d1 ?d3))(eq(- ?d3 ?d1)1)))
+	(test (and(and (neq ?op ?result) (neq ?d1 ?d3))(or(eq(- ?d3 ?d1)1)(and(neq ?column 1)(and(eq ?d1 9)(eq ?d3 0))))))
 
 	=>
 	(assert(possible (column ?column)(letters ?op ?result)(digits ?d1 ?d3)(carryover true))))
@@ -403,7 +403,37 @@
 ;**********************************************************************************************************
 (defmodule COMBINE_PERMUTATIONS (import MAIN ?ALL))
 
+(defrule merge-possibilities-2-letters
+	(declare (salience 50))
+	(possible (column ?column1) (letters ?l1 ?l2) (digits ?d1 ?d2) (carryover ?carryover1))
+	(possible (column ?column2&~?column1) (letters ?l3 ?l4) (digits ?d3 ?d4) (carryover ?carryover2))
+	(max-length (length ?max))
+
+	(test (eq ?column2 (+ ?column1 1)))
+
+	(test(or(and(eq ?carryover1 true)(eq ?d3 9))(and(eq ?carryover2 false)(neq ?d3 9))))
+
+	(test(or(and(eq ?l1 ?l3)(eq ?d1 ?d3))(and(neq ?l1 ?l3)(neq ?d1 ?d3))))
+
+	(test(or(and(eq ?l1 ?l4)(eq ?d1 ?d4))(and(neq ?l1 ?l4)(neq ?d1 ?d4))))
+
+	(test(or(and(eq ?l2 ?l3)(eq ?d2 ?d3))(and(neq ?l2 ?l3)(neq ?d2 ?d3))))
+
+	(test(or(and(eq ?l2 ?l4)(eq ?d2 ?d4))(and(neq ?l2 ?l4)(neq ?d2 ?d4))))
+
+	=>
+
+	(if (eq ?max 2)
+	then
+		(assert (answer (letters ?l1 ?l2 ?l3 ?l4) (numbers ?d1 ?d2 ?d3 ?d4)))
+	else
+		(assert (combination (column ?column2) (letters ?l1 ?l2 ?l3 ?l4) (numbers ?d1 ?d2 ?d3 ?d4)))
+	)
+
+)
+
 (defrule merge-possibilities-3-letters
+	(declare (salience 48))
 	(possible (column ?column1)(letters ?l1 ?l2 ?l3) (digits ?d1 ?d2 ?d3) (carryover ?carryover1))
 	(possible (column ?column2&~?column1)(letters ?l4 ?l5 ?l6) (digits ?d4 ?d5 ?d6) (carryover ?carryover2))
 	(max-length (length ?max))
@@ -508,6 +538,7 @@
 )
 
 (defrule merge-combinations-3-letters
+	(declare (salience 45))
 	(combination (column ?column1)(letters $?l1 ?l2 ?l3 ?l4) (numbers $?n1 ?n2 ?n3 ?n4))
 	(combination (column ?column2&:(eq ?column2 (+ ?column1 1)))(letters ?l2 ?l3 ?l4 $?l5) (numbers  ?n2 ?n3 ?n4 $?n5))
 	(max-length (length ?max))
