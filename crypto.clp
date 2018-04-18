@@ -25,6 +25,7 @@
 	(slot length (type INTEGER)))
 
 (deftemplate possible
+	(slot column (type INTEGER))
 	(multislot letters (type SYMBOL))
 	(multislot digits (type INTEGER))
 	(slot carryover))
@@ -79,13 +80,16 @@
 	(declare (salience 95))
 	(do (column ?column))
 	=>
+	(assert(done (column ?column)))
 	(focus PERMUTATE_POSSIBILITIES))
 
 (defrule combine-permutations
 	(declare (salience 94))
-	(do (column ?column))
+	(done (column ?column))
+	(max-length (length ?max))
+
+	(test(eq ?column ?max))
 	=>
-	(assert (done (column ?column)))
 	(focus COMBINE_PERMUTATIONS))
 
 
@@ -291,24 +295,10 @@
 	(do (column ?c))
 	(enumerate (column ?c) (letters $? ?a $?))
 	(digits $? ?d $?)
-	?g <- (assign(letter ?l)(digit ?n))
-	?f <- (combination (letters $?front ?combination_letters $?back) (numbers $?front2 ?combination_digits $?back2))
-
+	(assign(letter ?l)(digit ?n))
 	=>
 	(if (eq ?a ?l)
 	then
-		(if(eq ?combination_letters nil)
-		then
-			(assert (combination (letters ?l) (numbers ?n)))
-			(retract ?f)
-			(retract ?g)
-		else
-			(if (neq ?combination_letters ?l)
-			then
-				(assert (combination (letters ?front ?combination_letters ?back ?l) (numbers ?front2 ?combination_digits ?back2 ?n)))
-				(retract ?f)
-				(retract ?g))
-		) 
 		(assert (enum (letter ?l) (digit ?n)))
 
 	else 
@@ -345,11 +335,11 @@
 	=>
 	(if (or(and (eq ?column 1) (< (+ ?d1 ?d2) 10))(and(and(eq ?column 2)(eq ?result-longer true)) (>= (+ ?d1 ?d2) 10)))
 	then
-		(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover false)))
+		(assert(possible (column ?column)(letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover false)))
 	else
 		(if (or(and(> ?column 1)(eq ?result-longer false))(and(> ?column 2)(eq ?result-longer true)))
 		then
-			(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover false)))
+			(assert(possible (column ?column)(letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover false)))
 		)
 	))	
 
@@ -374,11 +364,11 @@
 	=>
 	(if (or(and (eq ?column 1) (< (+ ?d1 ?d2) 9))(and(and(eq ?column 2)(eq ?result-longer true)) (>= (+ ?d1 ?d2) 10)))
 	then
-		(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover true)))
+		(assert(possible (column ?column)(letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover true)))
 	else
 		(if (or(and(> ?column 1)(eq ?result-longer false))(and(> ?column 2)(eq ?result-longer true)))
 		then
-			(assert(possible (letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover true)))
+			(assert(possible (column ?column)(letters ?op1 ?op2 ?result)(digits ?d1 ?d2 ?d3)(carryover true)))
 		)
 	))
 
@@ -392,7 +382,7 @@
 
 	=>
 
-	(assert(possible (letters ?op ?result)(digits ?d1 ?d3)(carryover false))))
+	(assert(possible (column ?column)(letters ?op ?result)(digits ?d1 ?d3)(carryover false))))
 
 (defrule permutate-2-letters-diff
 	(do (column ?column))
@@ -403,25 +393,90 @@
 	(test (and(and (neq ?op ?result) (neq ?d1 ?d3))(eq(- ?d3 ?d1)1)))
 
 	=>
-	(assert(possible (letters ?op ?result)(digits ?d1 ?d3)(carryover true))))
+	(assert(possible (column ?column)(letters ?op ?result)(digits ?d1 ?d3)(carryover true))))
 
 ;**********************************************************************************************************
 (defmodule COMBINE_PERMUTATIONS (import MAIN ?ALL))
 
-(defrule combine-permutations-result-longer
-	(do (column ?column))
-	(is-result-longer (boolean true))
-	(enumerate (column ?column) (letters $? ?l $?))
-	?f1 <- (possible (letters $?poss_front ?l $?poss_back) (digits $?poss_frontd ?d $?poss_backd) (carryover ?carryover))
-	(combination (letters $?combi_front ?combi_letter $?combi_back) (numbers $?combi_frontd ?combi_digit $?combi_backd))
+(defrule form-combinations
+	(possible (column ?column1)(letters ?l1 ?l2 ?l3) (digits ?d1 ?d2 ?d3) (carryover ?carryover1))
+	(possible (column ?column2)(letters ?l4 ?l5 ?l6) (digits ?d4 ?d5 ?d6) (carryover ?carryover2))
 
-	(test (and(eq ?l ?combi_letter)(eq ?d ?combi_digit)))
+	(test (eq ?column2 (+ ?column1 1)))
+
+	(test (or(and(eq ?carryover1 true)(>=(+ ?d4 ?d5)10))(and(eq ?carryover1 false)(<(+ ?d4 ?d5)10))))
+
+	(test(or(or(or(or(or(or(or(or(or
+
+	(and(and(and(and(eq ?l1 ?l4)(eq ?d1 ?d4))
+	(or(and(eq ?l2 ?l5)(eq ?d2 ?d5))(and(neq ?l2 ?l5)(neq ?d2 ?d5))))
+	(or(and(eq ?l3 ?l6)(eq ?d3 ?d6))(and(neq ?l3 ?l6)(neq ?d3 ?d6))))
+	(and(and(and(eq ?l1 ?l4)(eq ?d1 ?d4))
+	(or(and(eq ?l2 ?l6)(eq ?d2 ?d6))(and(neq ?l2 ?l6)(neq ?d2 ?d6))))
+	(or(and(eq ?l3 ?l4)(eq ?d3 ?d4))(and(neq ?l3 ?l4)(neq ?d3 ?d4)))))
+	
+	(and(and(and(and(eq ?l1 ?l5)(eq ?d1 ?d5))
+	(or(and(eq ?l2 ?l4)(eq ?d2 ?d4))(and(neq ?l2 ?l4)(neq ?d2 ?d4))))
+	(or(and(eq ?l3 ?l6)(eq ?d3 ?d6))(and(neq ?l3 ?l6)(neq ?d3 ?d6))))
+	(and(and(and(eq ?l1 ?l5)(eq ?d1 ?d5))
+	(or(and(eq ?l2 ?l6)(eq ?d2 ?d6))(and(neq ?l2 ?l6)(neq ?d2 ?d6))))
+	(or(and(eq ?l3 ?l4)(eq ?d3 ?d4))(and(neq ?l3 ?l4)(neq ?d3 ?d4))))))
+
+	(and(and(and(and(eq ?l1 ?l6)(eq ?d1 ?d6))
+	(or(and(eq ?l2 ?l4)(eq ?d2 ?d4))(and(neq ?l2 ?l4)(neq ?d2 ?d4))))
+	(or(and(eq ?l3 ?l5)(eq ?d3 ?d5))(and(neq ?l3 ?l5)(neq ?d3 ?d5))))
+	(and(and(and(eq ?l1 ?l6)(eq ?d1 ?d6))
+	(or(and(eq ?l2 ?l5)(eq ?d2 ?d5))(and(neq ?l2 ?l5)(neq ?d2 ?d5))))
+	(or(and(eq ?l3 ?l4)(eq ?d3 ?d4))(and(neq ?l3 ?l4)(neq ?d3 ?d4))))))
+
+	(and(and(and(and(eq ?l2 ?l4)(eq ?d2 ?d4))
+	(or(and(eq ?l1 ?l5)(eq ?d1 ?d5))(and(neq ?l1 ?l5)(neq ?d1 ?d5))))
+	(or(and(eq ?l3 ?l6)(eq ?d3 ?d6))(and(neq ?l3 ?l6)(neq ?d3 ?d6))))
+	(and(and(and(eq ?l2 ?l4)(eq ?d2 ?d4))
+	(or(and(eq ?l1 ?l6)(eq ?d1 ?d6))(and(neq ?l1 ?l6)(neq ?d1 ?d6))))
+	(or(and(eq ?l3 ?l5)(eq ?d3 ?d5))(and(neq ?l3 ?l5)(neq ?d3 ?d5))))))
+
+	(and(and(and(and(eq ?l2 ?l5)(eq ?d2 ?d5))
+	(or(and(eq ?l1 ?l4)(eq ?d1 ?d4))(and(neq ?l1 ?l4)(neq ?d1 ?d4))))
+	(or(and(eq ?l3 ?l6)(eq ?d3 ?d6))(and(neq ?l3 ?l6)(neq ?d3 ?d6))))
+	(and(and(and(eq ?l2 ?l5)(eq ?d2 ?d5))
+	(or(and(eq ?l1 ?l6)(eq ?d1 ?d6))(and(neq ?l1 ?l6)(neq ?d1 ?d6))))
+	(or(and(eq ?l3 ?l4)(eq ?d3 ?d4))(and(neq ?l3 ?l4)(neq ?d3 ?d4))))))
+
+	(and(and(and(and(eq ?l2 ?l6)(eq ?d2 ?d6))
+	(or(and(eq ?l1 ?l4)(eq ?d1 ?d4))(and(neq ?l1 ?l4)(neq ?d1 ?d4))))
+	(or(and(eq ?l3 ?l5)(eq ?d3 ?d5))(and(neq ?l3 ?l5)(neq ?d3 ?d5))))
+	(and(and(and(eq ?l2 ?l6)(eq ?d2 ?d6))
+	(or(and(eq ?l1 ?l5)(eq ?d1 ?d5))(and(neq ?l1 ?l5)(neq ?d1 ?d5))))
+	(or(and(eq ?l3 ?l4)(eq ?d3 ?d4))(and(neq ?l3 ?l4)(neq ?d3 ?d4))))))
+
+	(and(and(and(and(eq ?l3 ?l4)(eq ?d3 ?d4))
+	(or(and(eq ?l2 ?l5)(eq ?d2 ?d5))(and(neq ?l2 ?l5)(neq ?d2 ?d5))))
+	(or(and(eq ?l1 ?l6)(eq ?d1 ?d6))(and(neq ?l1 ?l6)(neq ?d1 ?d6))))
+	(and(and(and(eq ?l3 ?l4)(eq ?d3 ?d4))
+	(or(and(eq ?l2 ?l6)(eq ?d2 ?d6))(and(neq ?l2 ?l6)(neq ?d2 ?d6))))
+	(or(and(eq ?l1 ?l5)(eq ?d1 ?d5))(and(neq ?l1 ?l5)(neq ?d1 ?d5))))))
+
+	(and(and(and(and(eq ?l3 ?l4)(eq ?d3 ?d4))
+	(or(and(eq ?l1 ?l5)(eq ?d1 ?d5))(and(neq ?l1 ?l5)(neq ?d1 ?d5))))
+	(or(and(eq ?l2 ?l6)(eq ?d2 ?d6))(and(neq ?l2 ?l6)(neq ?d2 ?d6))))
+	(and(and(and(eq ?l3 ?l4)(eq ?d3 ?d4))
+	(or(and(eq ?l1 ?l6)(eq ?d1 ?d6))(and(neq ?l1 ?l6)(neq ?d1 ?d6))))
+	(or(and(eq ?l2 ?l5)(eq ?d2 ?d5))(and(neq ?l2 ?l5)(neq ?d2 ?d5))))))
+
+	(and(and(and(and(eq ?l3 ?l5)(eq ?d3 ?d5))
+	(or(and(eq ?l1 ?l4)(eq ?d1 ?d4))(and(neq ?l1 ?l4)(neq ?d1 ?d4))))
+	(or(and(eq ?l2 ?l6)(eq ?d2 ?d6))(and(neq ?l2 ?l6)(neq ?d2 ?d6))))
+	(and(and(and(eq ?l3 ?l5)(eq ?d3 ?d5))
+	(or(and(eq ?l1 ?l6)(eq ?d1 ?d6))(and(neq ?l1 ?l6)(neq ?d1 ?d6))))
+	(or(and(eq ?l2 ?l4)(eq ?d2 ?d4))(and(neq ?l2 ?l4)(neq ?d2 ?d4))))))
+
+
+	(and(and(and(and(and(and(and(and(neq ?l1 ?l4)(neq ?l1 ?l5))(neq ?l1 ?l6))(neq ?l2 ?l4))(neq ?l2 ?l5))(neq ?l2 ?l6))(neq ?l3 ?l4))(neq ?l3 ?l5))(neq ?l3 ?l6))))
+
 
 	=>
-	(if (eq ?column 2)
-	then
-		(assert (combination (letters ?combi_front ?combi_letter ?combi_back ?poss_front ?poss_back) (numbers ?combi_frontd ?combi_digit ?combi_backd ?poss_frontd ?poss_backd)))
-		(retract ?f1))
+	(assert (combination (letters ?l1 ?l2 ?l3 ?l4 ?l5 ?l6) (numbers ?d1 ?d2 ?d3 ?d4 ?d5 ?d6)))
 )
 
 
