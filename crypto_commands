@@ -4,7 +4,8 @@
 (watch rules)
 (load "crypto.clp")
 (reset)
+(set-break COMBINE_PERMUTATIONS::merge-possibilities)
 (run)
-O N E
-F O U R
-F I V E
+S E N D
+M O R E
+M O N E Y
