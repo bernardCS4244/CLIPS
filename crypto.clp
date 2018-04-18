@@ -50,7 +50,11 @@
 (deftemplate combination
 	(slot column)
 	(multislot letters)
-	(multislot numbers)) 
+	(multislot numbers))
+
+(deftemplate answer
+	(multislot letters)
+	(multislot numbers))
 ;************* PROGRAM FLOW ********************************
 
 (defrule setup
@@ -308,7 +312,7 @@
 
 (defrule enumerate-without-assignments
 	(do (column ?c))
-	(enumerate (column ?) (letters $? ?a $?))
+	(enumerate (column ?c) (letters $? ?a $?))
 	(digits $? ?d $?)
 	(is-result-longer (boolean false))
 	=>
@@ -402,6 +406,7 @@
 (defrule merge-possibilities-3-letters
 	(possible (column ?column1)(letters ?l1 ?l2 ?l3) (digits ?d1 ?d2 ?d3) (carryover ?carryover1))
 	(possible (column ?column2&~?column1)(letters ?l4 ?l5 ?l6) (digits ?d4 ?d5 ?d6) (carryover ?carryover2))
+	(max-length (length ?max))
 
 	(test (eq ?column2 (+ ?column1 1)))
 
@@ -493,18 +498,44 @@
 
 	(and(neq ?l3 ?l6)(neq ?d3 ?d6)))))
 
-
 	=>
-	(assert (combination (column ?column2) (letters ?l1 ?l2 ?l3 ?l4 ?l5 ?l6) (numbers ?d1 ?d2 ?d3 ?d4 ?d5 ?d6)))
+	(if (eq ?max 2)
+	then
+		(assert (answer (letters ?l1 ?l2 ?l3 ?l4 ?l5 ?l6) (numbers ?d1 ?d2 ?d3 ?d4 ?d5 ?d6)))
+	else
+		(assert (combination (column ?column2) (letters ?l1 ?l2 ?l3 ?l4 ?l5 ?l6) (numbers ?d1 ?d2 ?d3 ?d4 ?d5 ?d6)))
+	)
 )
 
 (defrule merge-combinations-3-letters
 	(combination (column ?column1)(letters $?l1 ?l2 ?l3 ?l4) (numbers $?n1 ?n2 ?n3 ?n4))
 	(combination (column ?column2&:(eq ?column2 (+ ?column1 1)))(letters ?l2 ?l3 ?l4 $?l5) (numbers  ?n2 ?n3 ?n4 $?n5))
-
-
+	(max-length (length ?max))
+	(add
+		(op1 $?op1)
+		(op2 $?op2)
+		(result $?result))
 	=>
-	(assert (combination (column (+ ?column2 1)) (letters $?l1 ?l2 ?l3 ?l4 $?l5)(numbers $?n1 ?n2 ?n3 ?n4 $?n5)))
+	(bind ?counter 0)
+	(loop-for-count (?comb1 1 (length ?l1)) do
+		(loop-for-count (?comb2 1 (length ?l5)) do
+			(if
+			(or(and(eq (nth$ ?comb1 ?l1) (nth$ ?comb2 ?l5))(neq (nth$ ?comb1 ?n1) (nth$ ?comb2 ?n5)))
+
+			(and(neq (nth$ ?comb1 ?l1) (nth$ ?comb2 ?l5))(eq (nth$ ?comb1 ?n1) (nth$ ?comb2 ?n5))))
+			then
+				(bind ?counter (+ ?counter 1))
+			)	
+		)
+	)
+	(if (eq ?counter 0)
+	then
+		(if (and (eq ?max ?column2) (eq (+(+ (length ?op1) (length ?op2))(length ?result)) (+(+(length ?l1) 3)(+ (length ?l5) 3))))
+		then
+			(assert (answer (letters $?l1 ?l2 ?l3 ?l4 $?l5)(numbers $?n1 ?n2 ?n3 ?n4 $?n5)))
+		else
+			(assert (combination (column ?column2) (letters $?l1 ?l2 ?l3 ?l4 $?l5)(numbers $?n1 ?n2 ?n3 ?n4 $?n5))))
+	)
 )
 
 
