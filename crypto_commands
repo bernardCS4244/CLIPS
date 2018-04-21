@@ -1,11 +1,8 @@
 (clear)
-(watch activations)
-(watch facts)
-(watch rules)
+(unwatch all)
 (load "crypto.clp")
 (reset)
-(set-break COMBINE_PERMUTATIONS::merge-possibilities)
 (run)
-S E N D
-M O R E
-M O N E Y
+I U A
+    B
+L O C

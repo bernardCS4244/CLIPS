@@ -57,7 +57,7 @@
 	(multislot numbers))
 ;************* PROGRAM FLOW ********************************
 
-(defrule setup
+	(defrule setup
 	(declare (salience 100))
 	=>
 	(focus SETUP))
@@ -101,8 +101,8 @@
 	(declare (salience 93))
 	(answer (letters $?l) (numbers $?d))
 	=>
-	(printout t answer : "letters " ?l crlf)
-	(printout t answer : "numbers " ?d crlf))
+	(printout t answer : " letters " ?l crlf)
+	(printout t answer : " numbers " ?d crlf crlf))
 
 ; **********************************************************************************************************
 
@@ -222,9 +222,9 @@
 (defmodule PROCESS_COLUMN (import MAIN ?ALL))
 
 (defrule process-column-operands-diff-length-result-longer
+	(is-result-longer (boolean true))
 	(do (column ?c))
 	(shorter-operand (operand ?shortest))
-	(is-result-longer (boolean true))
 	(min-length (length ?min))
 	(max-length (length ?max))
 	(add
@@ -251,9 +251,9 @@
 	) )
 
 (defrule process-column-operands-diff-length-result-same
+	(is-result-longer (boolean false))
 	(do (column ?c))
 	(shorter-operand (operand ?shortest))
-	(is-result-longer (boolean false))
 	(min-length (length ?min))
 	(max-length (length ?max))
 	(add
@@ -280,9 +280,9 @@
 	) )
 
 (defrule process-column-all-same-length
-	(do (column ?c))
 	(is-result-longer (boolean false))
 	(are-operands-same-length (boolean true))
+	(do (column ?c))
 	(add
 		(op1 $?x)
 		(op2 $?y)
@@ -331,11 +331,11 @@
 (defrule permutate-no-carry-over-3-letters
 	(do (column ?column))
 	(enumerate (column ?column) (letters ?op1 ?op2 ?result))
-	(max-length (length ?length))
-	(is-result-longer (boolean ?result-longer))
 	(enum (letter ?op1) (digit ?d1))
 	(enum (letter ?op2) (digit ?d2))
 	(enum (letter ?result) (digit ?d3))
+	(is-result-longer (boolean ?result-longer))
+	(max-length (length ?length))
 
 	(test (or (and (eq ?op1 ?op2) (eq ?d1 ?d2)) (and (neq ?op1 ?op2) (neq ?d1 ?d2))))
 
@@ -363,12 +363,12 @@
 
 (defrule permutate-carry-over-3-letters
 	(do (column ?column))
-	(max-length (length ?length))
-	(is-result-longer (boolean ?result-longer))
 	(enumerate (column ?column) (letters ?op1 ?op2 ?result))
+	(is-result-longer (boolean ?result-longer))
 	(enum (letter ?op1) (digit ?d1))
 	(enum (letter ?op2) (digit ?d2))
 	(enum (letter ?result) (digit ?d3))
+	(max-length (length ?length))
 
 	(test (or (and (eq ?op1 ?op2) (eq ?d1 ?d2)) (and (neq ?op1 ?op2) (neq ?d1 ?d2))))
 
